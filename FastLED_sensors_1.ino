@@ -25,10 +25,17 @@ uint16_t BRIGHTNESS = 10;
 
 int counter = 50;
 int encoder_brightness_step = 20;
-int currentStateCLK;
-int lastStateCLK;
-String currentDir = "";
-unsigned long lastButtonPress = 0;
+int current_state_CLK;
+int last_state_CLK;
+String current_dir = "";
+unsigned long last_button_press = 0;
+//---------------------
+
+//---------------------датчик движения
+#define OUT 5
+
+int current_val_pir = 0;
+int state_pir = LOW;
 //---------------------
 
 String serialString = "";
@@ -59,7 +66,8 @@ void setup() {
   pinMode(CLK, INPUT);
   pinMode(DT, INPUT);
   pinMode(SW, INPUT_PULLUP);
-  lastStateCLK = digitalRead(CLK);
+  pinMode(OUT, INPUT);
+  last_state_CLK = digitalRead(CLK);
 }
 
 void fillnoise8() {
@@ -228,9 +236,9 @@ void sensors_and_weather_by_serial() {
 }
 
 void get_encoder_value() {
-  currentStateCLK = digitalRead(CLK);
-  if (currentStateCLK != lastStateCLK && currentStateCLK == 1) {
-    if (digitalRead(DT) != currentStateCLK) {
+  current_state_CLK = digitalRead(CLK);
+  if (current_state_CLK != last_state_CLK && current_state_CLK == 1) {
+    if (digitalRead(DT) != current_state_CLK) {
       counter = counter - encoder_brightness_step;
     } else {
       counter = counter + encoder_brightness_step;
@@ -238,14 +246,14 @@ void get_encoder_value() {
     // Serial.print(" | Counter: ");
     // Serial.println(counter);
   }
-  lastStateCLK = currentStateCLK;
+  last_state_CLK = current_state_CLK;
   int btnState = digitalRead(SW);
 
   if (btnState == LOW) {
-    if (millis() - lastButtonPress > 50) {
+    if (millis() - last_button_press > 50) {
       // Serial.println("Button pressed!");
     }
-    lastButtonPress = millis();
+    last_button_press = millis();
   }
   set_brightness_by_encoder();
 }
@@ -260,6 +268,25 @@ void set_brightness_by_encoder() {
   FastLED.setBrightness(BRIGHTNESS);
 }
 
+void set_pir_mode() {
+  current_val_pir = digitalRead(OUT);
+  if (current_val_pir == HIGH) {            
+    counter = 255;
+    if (state_pir == LOW) {
+      Serial.println("Smth moving");
+      state_pir = HIGH;
+    }
+  } 
+  else {
+    counter = 0;
+    if (state_pir == HIGH) {
+      Serial.println("No moving");
+      state_pir = LOW;
+    }
+  }
+  BRIGHTNESS = counter;
+  FastLED.setBrightness(BRIGHTNESS);
+}
 
 
 
