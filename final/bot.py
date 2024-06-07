@@ -1,12 +1,48 @@
 import requests
 import time
-from weather_mqtt_bot import send_serial
 import json
+import random
+from weather_mqtt_bot import send_serial, send_mqtt_and_weather, on_message, on_connect, find_COM_port
+import paho.mqtt.client as mqtt_client
+import paho.mqtt.subscribe as subscribe
 
 
 
 TOKEN = '7449023574:AAGJzL-XcaigYnIu0sTqazWMP0TPGjpnUn4'
 URL = 'https://api.telegram.org/bot'
+
+# -------------------------
+broker = "broker.emqx.io"
+LM_topic = "leap_motion_states"
+
+LM_state = 0
+previous_LM_state = 0
+
+client = mqtt_client.Client(f'client_{random.randint(10000, 99999)}')
+client.on_message = on_message
+client.on_connect = on_connect
+client.connect(broker)
+client.loop_start()
+city = 'Иркутск'
+previous_city='Иркутск'
+
+# global arduino
+arduino = find_COM_port()
+
+
+
+def get_mqtt():
+    LM_state = subscribe.simple(LM_topic, hostname=broker)
+    # if LM_state==0:
+    #     city = 'Иркутск'
+    #     if previous_city!=city:
+    #         pass
+    # if previous_LM_state!=int(float(LM_state.payload)):
+    #     previous_LM_state = int(float(LM_state.payload))
+    send_mqtt_and_weather(int(float(LM_state.payload)), city)
+    
+# -------------------------
+
 
 def get_updates(offset=0):
     result = requests.get(f'{URL}{TOKEN}/getUpdates?offset={offset}').json()
@@ -41,6 +77,7 @@ def geocoder(latitude, longitude):
 def run():
     update_id = get_updates()[-1]['update_id'] # Присваиваем ID последнего отправленного сообщения боту
     while True:
+        get_mqtt()
         time.sleep(2)
         messages = get_updates(update_id) # Получаем обновления
         for message in messages:
@@ -53,6 +90,8 @@ def run():
                     latitude = user_location['latitude']
                     longitude = user_location['longitude']
                     send_message(message['message']['chat']['id'], geocoder(latitude, longitude))
+        
+        
 
 if __name__ == '__main__':
     run()
